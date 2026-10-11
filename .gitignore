@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Env / secrets — NEVER commit real values
+.env
+.env.*
+!.env.example
+
+# Foundry
+cache/
+out/
+broadcast/
+artifacts/
+
+# Docker / data
+postgres_data/
+object_data/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Misc
+*.log
+dist/

@@ -1,0 +1,90 @@
+name: nexus
+
+services:
+  web:
+    build: ./apps/web
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - api
+
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  worker:
+    build: ./backend
+    env_file: .env
+    command: celery -A app.worker.celery_app.celery_app worker --loglevel=info
+    depends_on:
+      - redis
+      - postgres
+
+  scheduler:
+    build: ./backend
+    env_file: .env
+    command: celery -A app.worker.celery_app.celery_app beat --loglevel=info
+    depends_on:
+      - redis
+      - postgres
+
+  postgres:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nexus}
+      POSTGRES_USER: ${POSTGRES_USER:-nexus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexus}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nexus} -d ${POSTGRES_DB:-nexus}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+
+  storage:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    volumes:
+      - object_data:/data
+
+  routing:
+    build: ./infrastructure/routing
+    ports:
+      - "8002:8002"
+    volumes:
+      - valhalla_tiles:/data/valhalla_tiles
+
+  chain:
+    image: ghcr.io/foundry-rs/foundry:latest
+    command: anvil --host 0.0.0.0
+    ports:
+      - "8545:8545"
+    profiles: ["web3-dev"]
+
+volumes:
+  postgres_data:
+  redis_data:
+  object_data:
+  valhalla_tiles:
